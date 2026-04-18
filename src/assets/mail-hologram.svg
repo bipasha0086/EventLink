@@ -1,0 +1,44 @@
+<svg width="220" height="220" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="halo" cx="50%" cy="50%" r="55%">
+      <stop offset="0%" stop-color="#A5F3FC" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#67E8F9" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#67E8F9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="envBody" x1="34" y1="62" x2="184" y2="166" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D8FEFF"/>
+      <stop offset="1" stop-color="#B7F0F2"/>
+    </linearGradient>
+    <linearGradient id="flap" x1="48" y1="78" x2="170" y2="132" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E8FFFF"/>
+      <stop offset="1" stop-color="#BFECEF"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="88" y1="56" x2="132" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#16A7B1"/>
+      <stop offset="1" stop-color="#0F8B8D"/>
+    </linearGradient>
+    <filter id="soft" x="0" y="0" width="220" height="220" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+
+  <circle cx="110" cy="110" r="92" fill="url(#halo)"/>
+
+  <g filter="url(#soft)">
+    <circle cx="110" cy="174" r="34" fill="#0F8B8D" fill-opacity="0.2"/>
+  </g>
+
+  <rect x="48" y="86" width="124" height="78" rx="18" fill="url(#envBody)" stroke="#8ED7DA" stroke-width="2"/>
+  <path d="M56 92L110 130L164 92" stroke="#88D1D6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 92L92 130" stroke="#9EDFE2" stroke-width="2"/>
+  <path d="M172 92L128 130" stroke="#9EDFE2" stroke-width="2"/>
+  <path d="M64 86L110 124L156 86" fill="url(#flap)" stroke="#9DDDE1" stroke-width="2"/>
+
+  <circle cx="110" cy="58" r="21" fill="#D7FAFC" stroke="#8BD3D7" stroke-width="2"/>
+  <path d="M96 58H124" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M110 44V72" stroke="url(#accent)" stroke-width="4" stroke-linecap="round"/>
+
+  <circle cx="76" cy="64" r="4" fill="#8BD3D7"/>
+  <circle cx="146" cy="72" r="3" fill="#8BD3D7"/>
+  <circle cx="138" cy="48" r="2.5" fill="#8BD3D7"/>
+</svg>

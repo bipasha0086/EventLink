@@ -1,31 +1,32 @@
-.App {
-  text-align: center;
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
+  background: #f7fafc;
+  color: #333;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+a {
+  color: #a8edea;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+a:hover {
+  color: #fed6e3;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
+/* Remove default outline for buttons but keep accessibility */
+button:focus, .MuiButton-root:focus {
+  outline: 2px solid #a8edea;
+  outline-offset: 2px;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+/* Utility class for centering */
+.centered {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
 }
 
 @keyframes App-logo-spin {
