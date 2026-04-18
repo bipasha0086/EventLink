@@ -1,70 +1,134 @@
-# Getting Started with Create React App
+# EventLink
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+EventLink is a role-based theatre booking system for Admin, User, and Theatre teams. It lets users browse theatres and events, reserve seats, pay within a 24-hour window, and receive theatre updates. The frontend is a React app and the backend is a Java Servlet + MySQL application.
 
-## Available Scripts
+## What is included
 
-In the project directory, you can run:
+- Role-based authentication and routing
+- User seat booking with payment deadline handling
+- Admin seat allocation and deallocation
+- Theatre event publishing and alert notifications
+- Seat, event, theatre, booking, and notification views
+- Chatbot assistant for booking help and theatre queries
+- Demo-data fallback when backend data is unavailable
 
-### `npm start`
+## Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### Frontend
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- React 19
+- Create React App
+- React Router DOM
+- Material UI (`@mui/material`)
+- Emotion (`@emotion/react`, `@emotion/styled`)
+- Plain JavaScript, HTML, and CSS
+- Testing Library, Jest DOM, and User Event
 
-### `npm test`
+### Backend
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Java 21
+- Maven
+- Java Servlets (`javax.servlet-api` 4.0.1)
+- JDBC
+- MySQL Connector/J
+- Gson
+- SLF4J
+- Jetty Maven Plugin for local development
 
-### `npm run build`
+### Database
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- MySQL
+- Database name: `event_ticket_booking`
+- Schema file: `database/schema.sql`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## How the project works
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. The React app starts at the home page and sends users to login or register.
+2. After login, the app routes users based on role:
+	- `ADMIN` goes to the admin dashboard
+	- `USER` goes to the user dashboard
+	- `THEATRE` goes to the theatre dashboard
+3. The frontend loads live data from the backend using these endpoints:
+	- `/user`
+	- `/theatre`
+	- `/event`
+	- `/seat`
+	- `/booking`
+	- `/notification`
+	- `/chatbot`
+4. The backend applies the business rules:
+	- one active seat per user
+	- booking expiry after 24 hours if unpaid
+	- payment confirmation for reserved seats
+	- admin allocation and deallocation
+	- theatre alert notifications
+	- chatbot replies through Groq/xAI configuration on the server
 
-### `npm run eject`
+## Main Features by Role
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Admin
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- View bookings
+- Allocate seats to a friend while a booking is pending
+- Deallocate bookings when needed
+- Review notification activity
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+### User
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+- Browse theatres and events
+- Book a seat
+- Pay for the booking before the deadline
+- View booking status and notifications
 
-## Learn More
+### Theatre
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- View theatre-specific events and bookings
+- Add new events
+- Send alerts to users linked to the theatre
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Project Structure
 
-### Code Splitting
+### Frontend
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- `src/App.js` controls routing, data loading, and role-based access
+- `src/pages/` contains the main screens
+- `src/components/` contains shared UI pieces like the navbar and chatbot
+- `src/data/systemData.js` provides fallback demo content
 
-### Analyzing the Bundle Size
+### Backend
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+- `src/main/java/servlet/` contains the HTTP endpoints
+- `src/main/java/service/` contains business logic
+- `src/main/java/dao/` contains database access code
+- `src/main/java/model/` contains entity classes
+- `src/main/java/util/` contains database and JSON helpers
 
-### Making a Progressive Web App
+## Run Locally
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Frontend
 
-### Advanced Configuration
+```bash
+npm install
+npm start
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+The frontend runs on `http://localhost:3000` and proxies API calls to the backend on `http://localhost:8081`.
 
-### Deployment
+### Backend
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+Build and run the Java backend from the backend project folder with Maven and Jetty.
 
-### `npm run build` fails to minify
+```bash
+mvn clean package
+mvn jetty:run
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## Notes
+
+- The frontend uses local storage to remember the current user session.
+- If the backend is unavailable, the UI shows demo theatre and event data so the app still remains usable.
+- The chatbot needs a valid backend API key configured in environment variables before it can answer requests.
+
+## API Overview
+
+The full backend API guide lives in the sibling backend project folder in the workspace and documents the same endpoints and rules used by the frontend.
