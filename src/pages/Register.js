@@ -12,10 +12,30 @@ import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import './Auth.css';
 
-export default function Register({ threatAreas = [] }) {
+const roles = [
+  {
+    value: 'USER',
+    label: 'User',
+    description: 'Book seats and manage payments from your personal dashboard.',
+  },
+  {
+    value: 'ADMIN',
+    label: 'Admin',
+    description: 'Manage theatres, bookings, and system-wide allocation control.',
+  },
+  {
+    value: 'THEATRE',
+    label: 'Theatre Person',
+    description: 'Manage theatre schedules and send notifications to users.',
+  },
+];
+
+export default function Register({ theatres = [], threatAreas = [] }) {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [threatArea, setThreatArea] = useState(threatAreas[0] || 'Downtown');
+  const [selectedRole, setSelectedRole] = useState('USER');
+  const [theatreId, setTheatreId] = useState(theatres[0]?.theatreId || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -33,14 +53,21 @@ export default function Register({ threatAreas = [] }) {
       setError('Passwords do not match.');
       return;
     }
+    if (selectedRole === 'THEATRE' && !theatreId) {
+      setError('Please select a theatre for theatre accounts.');
+      return;
+    }
     try {
       const formData = new URLSearchParams();
       formData.append('action', 'register');
       formData.append('username', username);
       formData.append('password', password);
       formData.append('email', email);
-      formData.append('role', 'USER');
+      formData.append('role', selectedRole);
       formData.append('threatArea', threatArea);
+      if (selectedRole === 'THEATRE') {
+        formData.append('theatreId', String(theatreId));
+      }
       const response = await fetch('/user', {
         method: 'POST',
         headers: {
@@ -98,16 +125,40 @@ export default function Register({ threatAreas = [] }) {
         <section className="auth-form">
           <div className="auth-form-inner">
             <Typography className="auth-title">Join the booking system.</Typography>
-            <Typography className="auth-subtitle">Create a user account and get started immediately.</Typography>
+            <Typography className="auth-subtitle">Choose the correct role first, then create the matching account.</Typography>
+
+            <div className="auth-role-grid" style={{ marginBottom: 18 }}>
+              {roles.map((role) => (
+                <div
+                  key={role.value}
+                  className={`auth-role-card ${selectedRole === role.value ? 'active' : ''}`}
+                  onClick={() => setSelectedRole(role.value)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && setSelectedRole(role.value)}
+                >
+                  <h3>{role.label}</h3>
+                  <p>{role.description}</p>
+                </div>
+              ))}
+            </div>
+
+            <Typography sx={{ color: '#486581', fontSize: '0.93rem', fontWeight: 600, mb: 2 }}>
+              {selectedRole === 'THEATRE'
+                ? 'Theatre accounts must pick a theatre before saving.'
+                : selectedRole === 'ADMIN'
+                  ? 'Admin accounts save with role ADMIN in the database.'
+                  : 'User accounts save with role USER in the database.'}
+            </Typography>
 
             <div className="auth-panel">
               {error && (
-                <Alert severity="error" sx={{ mb: 2, borderRadius: 2, fontWeight: 500 }}>
+                <Alert severity="error" sx={{ mb: 2, borderRadius: 1, fontWeight: 500 }}>
                   {error}
                 </Alert>
               )}
               {success && (
-                <Alert severity="success" sx={{ mb: 2, borderRadius: 2, fontWeight: 500 }} onClose={() => window.location.href = '/login'}>
+                <Alert severity="success" sx={{ mb: 2, borderRadius: 1, fontWeight: 500 }} onClose={() => window.location.href = '/login'}>
                   Registration successful. Redirecting to login...
                 </Alert>
               )}
@@ -117,19 +168,34 @@ export default function Register({ threatAreas = [] }) {
                   <TextField label="Username" variant="outlined" fullWidth value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a unique username" />
                   <TextField label="Email" type="email" variant="outlined" fullWidth value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" />
 
-                  <FormControl fullWidth>
-                    <InputLabel>Threat Area</InputLabel>
-                    <Select value={threatArea} label="Threat Area" onChange={(e) => setThreatArea(e.target.value)}>
-                      {threatAreas.map((area) => (
-                        <MenuItem key={area} value={area}>{area}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                  {selectedRole === 'THEATRE' && theatres.length > 0 && (
+                    <FormControl fullWidth>
+                      <InputLabel>Theatre</InputLabel>
+                      <Select value={theatreId} label="Theatre" onChange={(e) => setTheatreId(e.target.value)}>
+                        {theatres.map((theatre) => (
+                          <MenuItem key={theatre.theatreId} value={theatre.theatreId}>
+                            {theatre.name} • {theatre.area}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
+
+                  {selectedRole !== 'THEATRE' && (
+                    <FormControl fullWidth>
+                      <InputLabel>{selectedRole === 'ADMIN' ? 'Admin Area' : 'Threat Area'}</InputLabel>
+                      <Select value={threatArea} label={selectedRole === 'ADMIN' ? 'Admin Area' : 'Threat Area'} onChange={(e) => setThreatArea(e.target.value)}>
+                        {threatAreas.map((area) => (
+                          <MenuItem key={area} value={area}>{area}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
 
                   <TextField label="Password" type="password" variant="outlined" fullWidth value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 6 characters" />
                   <TextField label="Confirm Password" type="password" variant="outlined" fullWidth value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter your password" />
 
-                  <Button type="submit" variant="contained" fullWidth size="large" sx={{ py: 1.4, fontWeight: 800, borderRadius: 2 }}>
+                  <Button type="submit" variant="contained" fullWidth size="large" sx={{ py: 1.4, fontWeight: 800, borderRadius: 1 }}>
                     Create Account
                   </Button>
 

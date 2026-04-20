@@ -16,7 +16,7 @@
 
 .auth-hero,
 .auth-form {
-  border-radius: 32px;
+  border-radius: 10px;
   border: 1px solid rgba(16, 42, 67, 0.08);
   box-shadow: 0 18px 40px rgba(16, 42, 67, 0.08);
   overflow: hidden;
@@ -68,7 +68,7 @@
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  border-radius: 999px;
+  border-radius: 6px;
   padding: 8px 14px;
   background: rgba(255, 255, 255, 0.16);
   color: #effdfd;
@@ -101,7 +101,7 @@
 
 .auth-point {
   padding: 14px;
-  border-radius: 18px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.14);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -123,7 +123,7 @@
 
 .auth-visual {
   margin-top: auto;
-  border-radius: 26px;
+  border-radius: 10px;
   min-height: 250px;
   border: 1px solid rgba(255, 255, 255, 0.24);
   background: radial-gradient(circle at 50% 38%, rgba(255, 255, 255, 0.85) 0%, rgba(242, 250, 248, 0.9) 55%, rgba(255, 245, 238, 0.75) 100%);
@@ -131,10 +131,19 @@
   overflow: hidden;
 }
 
+.auth-visual::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 0%, rgba(255,255,255,0.55) 48%, transparent 70%);
+  transform: translateX(-120%);
+  pointer-events: none;
+}
+
 .auth-visual-grid {
   position: absolute;
   inset: 22px 22px 22px 22px;
-  border-radius: 20px;
+  border-radius: 8px;
   border: 2px solid rgba(15, 139, 141, 0.18);
   background: rgba(255, 255, 255, 0.84);
   padding: 14px;
@@ -208,17 +217,15 @@
 }
 
 .auth-role-card {
-  border-radius: 20px;
+  border-radius: 8px;
   border: 1px solid rgba(16, 42, 67, 0.08);
   background: rgba(255, 255, 255, 0.92);
   padding: 16px;
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .auth-role-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 24px rgba(15, 139, 141, 0.08);
+  box-shadow: 0 8px 18px rgba(15, 139, 141, 0.08);
 }
 
 .auth-role-card.active {
@@ -241,7 +248,7 @@
 }
 
 .auth-panel {
-  border-radius: 26px;
+  border-radius: 10px;
   border: 1px solid rgba(16, 42, 67, 0.08);
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 12px 28px rgba(16, 42, 67, 0.08);
@@ -259,6 +266,28 @@
   color: #95a3b3;
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+@keyframes auth-card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes auth-orb-float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(10px) scale(1.06); }
+}
+
+@keyframes auth-visual-sheen {
+  0% { transform: translateX(-120%); }
+  40% { transform: translateX(120%); }
+  100% { transform: translateX(120%); }
 }
 
 @media (max-width: 1160px) {
@@ -284,7 +313,7 @@
   .auth-hero,
   .auth-form {
     padding: 18px;
-    border-radius: 22px;
+    border-radius: 10px;
   }
 
   .auth-points,

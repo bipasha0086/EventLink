@@ -17,16 +17,14 @@ const thoughts = [
 
 export default function MotivationalBlock() {
   const [thought, setThought] = React.useState(thoughts[0]);
-  const [fade, setFade] = React.useState(true);
 
   React.useEffect(() => {
     const interval = setInterval(() => {
-      setFade(false);
-      setTimeout(() => {
-        setThought(thoughts[Math.floor(Math.random() * thoughts.length)]);
-        setFade(true);
-      }, 400);
-    }, 5000);
+      setThought((current) => {
+        const next = thoughts[Math.floor(Math.random() * thoughts.length)];
+        return next === current ? thoughts[(thoughts.indexOf(next) + 1) % thoughts.length] : next;
+      });
+    }, 8000);
     return () => clearInterval(interval);
   }, []);
 
@@ -40,7 +38,7 @@ export default function MotivationalBlock() {
         mx: 'auto',
         maxWidth: 940,
         background: 'linear-gradient(125deg, rgba(255,255,255,0.88) 0%, rgba(241, 251, 247, 0.92) 55%, rgba(255, 244, 235, 0.9) 100%)',
-        borderRadius: 5,
+        borderRadius: 2,
         border: '1px solid rgba(16, 42, 67, 0.09)',
         boxShadow: '0 16px 36px rgba(16, 42, 67, 0.09)',
         display: 'flex',
@@ -73,9 +71,6 @@ export default function MotivationalBlock() {
           color: '#102a43',
           fontWeight: 800,
           letterSpacing: 0.2,
-          opacity: fade ? 1 : 0,
-          transform: fade ? 'translateY(0px)' : 'translateY(8px)',
-          transition: 'opacity 0.45s ease, transform 0.45s ease',
         }}
       >
         {thought}

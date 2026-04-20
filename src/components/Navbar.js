@@ -8,10 +8,20 @@ import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import Stack from '@mui/material/Stack';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function Navbar({ currentUser, onLogout }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isAuthRoute = ['/login', '/register'].includes(location.pathname);
+
+  const roleLabel = currentUser?.role === 'ADMIN'
+    ? 'Admin Mode'
+    : currentUser?.role === 'THEATRE'
+      ? 'Theatre Mode'
+      : currentUser?.role === 'USER'
+        ? 'User Mode'
+        : 'Guest Mode';
 
   const dashboardPath =
     currentUser?.role === 'ADMIN'
@@ -29,12 +39,21 @@ export default function Navbar({ currentUser, onLogout }) {
         sx={{
           mx: { xs: 1.5, md: 3 },
           mt: 2,
-          borderRadius: 3,
+          borderRadius: 1.5,
           border: '1px solid rgba(15, 139, 141, 0.15)',
-          background: 'rgba(255,255,255,0.95)',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(246,251,250,0.95) 100%)',
           color: '#102a43',
           backdropFilter: 'blur(12px)',
           boxShadow: '0 8px 24px rgba(15, 139, 141, 0.08)',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(120deg, transparent 0%, rgba(15, 139, 141, 0.08) 50%, transparent 100%)',
+              transform: 'translateX(-100%)',
+              animation: isAuthRoute ? 'none' : 'navbarSweep 8s ease-in-out infinite',
+              pointerEvents: 'none',
+            },
         }}
       >
         <Toolbar sx={{ py: 1, px: { xs: 2, md: 3 } }}>
@@ -61,7 +80,8 @@ export default function Navbar({ currentUser, onLogout }) {
                 justifyContent: 'center',
                 color: 'white',
                 fontWeight: 900,
-                fontSize: '20px'
+                fontSize: '20px',
+                animation: isAuthRoute ? 'none' : 'navPulse 4.5s ease-in-out infinite',
               }}
             >
               🎭
@@ -88,7 +108,7 @@ export default function Navbar({ currentUser, onLogout }) {
               mr: 2,
             }}
           >
-            Your journey matters.
+            {roleLabel}
           </Typography>
 
           <Stack 
@@ -107,7 +127,7 @@ export default function Navbar({ currentUser, onLogout }) {
               sx={{
                 px: { xs: 1.5, md: 2.5 },
                 py: 0.8,
-                borderRadius: 2.5,
+                borderRadius: 1.25,
                 fontWeight: 600,
                 fontSize: '14px',
                 color: '#486581',
@@ -129,7 +149,7 @@ export default function Navbar({ currentUser, onLogout }) {
                 sx={{
                   px: { xs: 1.5, md: 2.5 },
                   py: 0.8,
-                  borderRadius: 2.5,
+                  borderRadius: 1.25,
                   fontWeight: 600,
                   fontSize: '14px',
                   color: '#486581',
@@ -151,7 +171,7 @@ export default function Navbar({ currentUser, onLogout }) {
               sx={{
                 px: { xs: 1.5, md: 2.5 },
                 py: 0.8,
-                borderRadius: 2.5,
+                borderRadius: 1.25,
                 fontWeight: 600,
                 fontSize: '14px',
                 color: '#0f8b8d',
@@ -173,7 +193,7 @@ export default function Navbar({ currentUser, onLogout }) {
                   sx={{
                     px: { xs: 1.5, md: 2.5 },
                     py: 0.8,
-                    borderRadius: 2.5,
+                    borderRadius: 1.25,
                     fontWeight: 600,
                     fontSize: '14px',
                     color: '#486581',
@@ -193,7 +213,7 @@ export default function Navbar({ currentUser, onLogout }) {
                   sx={{
                     px: { xs: 1.5, md: 2.5 },
                     py: 0.8,
-                    borderRadius: 2.5,
+                    borderRadius: 1.25,
                     fontWeight: 700,
                     fontSize: '14px',
                     background: 'linear-gradient(135deg, #0f8b8d 0%, #0a6b6d 100%)',
@@ -220,6 +240,7 @@ export default function Navbar({ currentUser, onLogout }) {
                     backgroundColor: 'rgba(15, 139, 141, 0.08)',
                     color: '#0f8b8d',
                     border: '1.5px solid rgba(15, 139, 141, 0.2)',
+                    borderRadius: 1,
                     fontWeight: 700,
                     fontSize: '13px',
                   }}
@@ -231,6 +252,7 @@ export default function Navbar({ currentUser, onLogout }) {
                     backgroundColor: 'rgba(224, 122, 95, 0.1)',
                     color: '#c85a38',
                     border: '1.5px solid rgba(224, 122, 95, 0.2)',
+                    borderRadius: 1,
                     fontWeight: 700,
                     fontSize: '11px',
                   }}
@@ -241,7 +263,7 @@ export default function Navbar({ currentUser, onLogout }) {
                   sx={{
                     px: { xs: 1.5, md: 2.5 },
                     py: 0.8,
-                    borderRadius: 2.5,
+                    borderRadius: 1.25,
                     fontWeight: 600,
                     fontSize: '14px',
                     color: '#c85a38',

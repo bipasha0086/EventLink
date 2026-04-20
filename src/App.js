@@ -20,6 +20,31 @@ import {
 } from './data/systemData';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 
+const API_BASE_URL =
+  process.env.NODE_ENV === 'development'
+    ? ''
+    : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8081');
+
+const toApiUrl = (path) => `${API_BASE_URL}${path}`;
+
+const normalizeRole = (role) => {
+  const value = String(role || '').trim().toUpperCase().replace(/\s+/g, '_');
+  if (value === 'ADMIN') return 'ADMIN';
+  if (value === 'USER') return 'USER';
+  if (['THEATRE', 'THEATER', 'THEATRE_PERSON', 'THEATER_PERSON', 'THREATRE', 'THREAD_PERSON'].includes(value)) {
+    return 'THEATRE';
+  }
+  return value;
+};
+
+const normalizeUserRole = (user) => {
+  if (!user) return user;
+  return {
+    ...user,
+    role: normalizeRole(user.role),
+  };
+};
+
 const buildDemoData = () => {
   const theatreIdBySourceId = new Map();
   const theatreList = fallbackTheatres.map((theatre, index) => {
@@ -91,7 +116,7 @@ const theme = createTheme({
     },
   },
   shape: {
-    borderRadius: 18,
+    borderRadius: 8,
   },
   components: {
     MuiButton: {
@@ -99,7 +124,7 @@ const theme = createTheme({
         root: {
           textTransform: 'none',
           fontWeight: 700,
-          borderRadius: 14,
+          borderRadius: 6,
           paddingInline: 16,
         },
       },
@@ -107,9 +132,37 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: 20,
+          borderRadius: 8,
           border: '1px solid rgba(16, 42, 67, 0.09)',
           boxShadow: '0 10px 30px rgba(31, 64, 104, 0.08)',
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+        },
+      },
+    },
+    MuiAlert: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+        },
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+        },
+      },
+    },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
         },
       },
     },
@@ -119,10 +172,19 @@ const theme = createTheme({
 function App() {
   const [currentUser, setCurrentUser] = React.useState(() => {
     const raw = localStorage.getItem('currentUser');
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      return normalizeUserRole(JSON.parse(raw));
+    } catch {
+      return null;
+    }
   });
   const [theatres, setTheatres] = React.useState([]);
   const [events, setEvents] = React.useState([]);
+  const [users, setUsers] = React.useState([]);
   const [seatsByEvent, setSeatsByEvent] = React.useState({});
   const [bookings, setBookings] = React.useState([]);
   const [notifications, setNotifications] = React.useState([]);
@@ -147,7 +209,7 @@ function App() {
   }, []);
 
   const fetchJson = React.useCallback(async (url, options = {}) => {
-    const response = await fetch(url, options);
+    const response = await fetch(toApiUrl(url), options);
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.status === 'error' || data.status === 'fail') {
       throw new Error(data.message || `Request failed: ${url}`);
@@ -199,29 +261,6 @@ function App() {
       const eventData = await fetchJson('/event');
       const backendEvents = eventData.events || [];
       const eventList = [...backendEvents];
-      const eventNameSet = new Set(eventList.map((event) => `${event.name}|${event.theatreId}|${event.eventDate}|${event.eventTime}`));
-      let nextEventId = eventList.reduce((max, event) => Math.max(max, Number(event.eventId) || 0), 0) + 1;
-
-      demoData.eventList.forEach((demoEvent, index) => {
-        const demoTheatre = demoData.theatreList.find((theatre) => theatre.theatreId === demoEvent.theatreId);
-        const mappedTheatreId = theatreNameMap.get(demoTheatre?.name || '') || theatreList[0]?.theatreId || 1;
-        const signature = `${demoEvent.name}|${mappedTheatreId}|${demoEvent.eventDate}|${demoEvent.eventTime}`;
-
-        if (eventNameSet.has(signature)) {
-          return;
-        }
-
-        const eventId = nextEventId++;
-        eventList.push({
-          eventId,
-          theatreId: mappedTheatreId,
-          name: demoEvent.name,
-          eventDate: demoEvent.eventDate,
-          eventTime: demoEvent.eventTime,
-          description: demoEvent.description,
-        });
-        eventNameSet.add(signature);
-      });
 
       setEvents(eventList);
 
@@ -242,26 +281,18 @@ function App() {
         }
       });
 
-      demoData.eventList.forEach((demoEvent) => {
-        const demoTheatre = demoData.theatreList.find((theatre) => theatre.theatreId === demoEvent.theatreId);
-        const mappedTheatreId = theatreNameMap.get(demoTheatre?.name || '') || theatreList[0]?.theatreId || 1;
-        const matchedEvent = eventList.find(
-          (eventItem) =>
-            eventItem.name === demoEvent.name &&
-            eventItem.theatreId === mappedTheatreId &&
-            eventItem.eventDate === demoEvent.eventDate &&
-            eventItem.eventTime === demoEvent.eventTime
-        );
-
-        if (matchedEvent && !nextSeatsByEvent[matchedEvent.eventId]) {
-          nextSeatsByEvent[matchedEvent.eventId] = demoData.seatsByEvent[demoEvent.id === 'e1' ? 1 : demoEvent.id === 'e2' ? 2 : demoEvent.id === 'e3' ? 3 : 4] || [];
-        }
-      });
-
-      setSeatsByEvent(nextSeatsByEvent);
+      if (!eventList.length) {
+        setDataNotice('Backend event data is limited. Showing demo events and seats.');
+        setEvents(demoData.eventList);
+        setSeatsByEvent(demoData.seatsByEvent);
+      } else {
+        setEvents(eventList);
+        setSeatsByEvent(nextSeatsByEvent);
+      }
 
       const allUsersData = await fetchJson('/user');
-      const userList = allUsersData.users || [];
+      const userList = (allUsersData.users || []).map(normalizeUserRole);
+      setUsers(userList);
 
       const bookingEndpoint = !activeUser
         ? '/booking'
@@ -316,6 +347,7 @@ function App() {
       const demoData = buildDemoData();
       setTheatres(demoData.theatreList);
       setEvents(demoData.eventList);
+      setUsers([]);
       setSeatsByEvent(demoData.seatsByEvent);
       setBookings([]);
       setNotifications([]);
@@ -336,7 +368,7 @@ function App() {
     formData.append('username', username);
     formData.append('password', password);
 
-    const response = await fetch('/user', {
+    const response = await fetch(toApiUrl('/user'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -349,12 +381,19 @@ function App() {
       throw new Error(data.message || 'Login failed.');
     }
 
-    if (expectedRole && data.user?.role !== expectedRole) {
-      throw new Error(`This account is ${data.user?.role || 'UNKNOWN'}, not ${expectedRole}.`);
+    const normalizedUser = normalizeUserRole(data.user);
+    const normalizedExpectedRole = normalizeRole(expectedRole);
+    const normalizedActualRole = normalizeRole(normalizedUser?.role);
+
+    if (normalizedExpectedRole && normalizedExpectedRole !== normalizedActualRole) {
+      appendUiAlert(
+        'warning',
+        `Role mismatch detected. Continuing as ${normalizedActualRole || 'the account\'s actual role'}.`
+      );
     }
 
-    setCurrentUser(data.user);
-    return data.user;
+    setCurrentUser(normalizedUser);
+    return normalizedUser;
   };
 
   const onLogout = () => {
@@ -440,6 +479,42 @@ function App() {
       return { ok: true };
     } catch (error) {
       return { ok: false, message: error.message || 'Allocation failed.' };
+    }
+  };
+
+  const onUpdateUserRole = async ({ userId, role, theatreId }) => {
+    try {
+      const formData = new URLSearchParams();
+      formData.append('action', 'update');
+      formData.append('userId', String(userId));
+      formData.append('role', role);
+      if (theatreId) {
+        formData.append('theatreId', String(theatreId));
+      }
+
+      const response = await fetch(toApiUrl('/user'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: formData.toString(),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.status !== 'success') {
+        throw new Error(data.message || 'Role update failed.');
+      }
+
+      const updatedRole = normalizeRole(role);
+      if (currentUser?.userId === userId) {
+        setCurrentUser((prev) => (prev ? { ...prev, role: updatedRole, theatreId: theatreId ? Number(theatreId) : null } : prev));
+      }
+
+      appendUiAlert('success', `User role updated to ${updatedRole}.`);
+      await refreshCoreData(currentUser);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: error.message || 'Role update failed.' };
     }
   };
 
@@ -571,16 +646,18 @@ function App() {
 
   const AppBody = () => {
     const location = useLocation();
-    const showMotivation = !['/', '/user-dashboard', '/admin-dashboard', '/theatre-dashboard'].includes(location.pathname);
+    const isLoginPage = location.pathname === '/login';
+    const showMotivation = !['/', '/login', '/user-dashboard', '/admin-dashboard', '/theatre-dashboard'].includes(location.pathname);
+    const showTopAlerts = location.pathname !== '/login';
 
     return (
       <>
-        <Navbar currentUser={currentUser} onLogout={onLogout} />
+        {!isLoginPage && <Navbar currentUser={currentUser} onLogout={onLogout} />}
         {showMotivation && <MotivationalBlock />}
         <Box sx={{ px: { xs: 2, md: 4 } }}>
-          {dataNotice && <Alert severity="warning" sx={{ mt: 2 }}>{dataNotice}</Alert>}
-          {globalError && <Alert severity="error" sx={{ mt: 2 }}>{globalError}</Alert>}
-          {loadingData && <Alert severity="info" sx={{ mt: 2 }}>Syncing backend data...</Alert>}
+          {showTopAlerts && dataNotice && <Alert severity="warning" sx={{ mt: 2 }}>{dataNotice}</Alert>}
+          {showTopAlerts && globalError && <Alert severity="error" sx={{ mt: 2 }}>{globalError}</Alert>}
+          {showTopAlerts && loadingData && <Alert severity="info" sx={{ mt: 2 }}>Syncing backend data...</Alert>}
         </Box>
         <Routes>
           <Route path="/" element={<Home />} />
@@ -601,10 +678,13 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={['ADMIN']}>
                 <AdminDashboard
+                    users={users}
+                    theatres={theatres}
                   bookings={bookings}
                   notifications={dashboardNotifications}
                   onAllocate={onAllocate}
                   onDeallocate={onDeallocate}
+                    onUpdateUserRole={onUpdateUserRole}
                 />
               </ProtectedRoute>
             }
@@ -642,6 +722,14 @@ function App() {
             }
           />
         </Routes>
+        {!isLoginPage && (
+          <ChatbotWidget
+            currentUser={currentUser}
+            theatres={theatres}
+            events={events}
+            bookings={bookings}
+          />
+        )}
       </>
     );
   };
@@ -654,12 +742,6 @@ function App() {
         <Box className="app-orb app-orb-two" />
         <Router>
           <AppBody />
-          <ChatbotWidget
-            currentUser={currentUser}
-            theatres={theatres}
-            events={events}
-            bookings={bookings}
-          />
         </Router>
       </Box>
     </ThemeProvider>

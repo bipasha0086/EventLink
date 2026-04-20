@@ -1,24 +1,61 @@
 
+:root {
+  --bg-0: #08151e;
+  --bg-1: #f3fbfa;
+  --bg-2: #fff7ef;
+  --text-strong: #102a43;
+  --text-soft: #486581;
+  --accent: #0f8b8d;
+  --accent-2: #e07a5f;
+  --line: rgba(16, 42, 67, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
   padding: 0;
-  font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
-  background: #f7fafc;
-  color: #333;
+  font-family: 'Sora', 'Manrope', 'Segoe UI', sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(15, 139, 141, 0.16), transparent 34%),
+    radial-gradient(circle at 82% 12%, rgba(224, 122, 95, 0.14), transparent 28%),
+    linear-gradient(180deg, #eef7f7 0%, #f8fafc 44%, #fff9f1 100%);
+  color: var(--text-strong);
+  min-height: 100vh;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.35) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.8), transparent 90%);
+  opacity: 0.35;
+  z-index: -1;
 }
 
 a {
-  color: #a8edea;
+  color: var(--accent);
   text-decoration: none;
   transition: color 0.2s;
 }
 a:hover {
-  color: #fed6e3;
+  color: var(--accent-2);
 }
 
 /* Remove default outline for buttons but keep accessibility */
 button:focus, .MuiButton-root:focus {
-  outline: 2px solid #a8edea;
+  outline: 2px solid rgba(15, 139, 141, 0.38);
   outline-offset: 2px;
 }
 
@@ -29,6 +66,15 @@ button:focus, .MuiButton-root:focus {
   justify-content: center;
 }
 
+::selection {
+  background: rgba(15, 139, 141, 0.18);
+  color: var(--text-strong);
+}
+
+.page-entrance {
+  animation: page-entrance 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);
@@ -36,4 +82,44 @@ button:focus, .MuiButton-root:focus {
   to {
     transform: rotate(360deg);
   }
+}
+
+@keyframes page-entrance {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+    filter: blur(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes navbarSweep {
+  0% { transform: translateX(-110%); }
+  45% { transform: translateX(110%); }
+  100% { transform: translateX(110%); }
+}
+
+@keyframes navPulse {
+  0%, 100% { transform: scale(1); filter: saturate(1); }
+  50% { transform: scale(1.08); filter: saturate(1.2); }
+}
+
+@keyframes userPulseBar {
+  0%, 100% { transform: scaleX(0.92); transform-origin: left; }
+  50% { transform: scaleX(1); transform-origin: left; }
+}
+
+@keyframes theatreHeaderSweep {
+  0% { transform: translateX(-110%); }
+  45% { transform: translateX(110%); }
+  100% { transform: translateX(110%); }
+}
+
+@keyframes theatrePulseBar {
+  0%, 100% { opacity: 0.84; }
+  50% { opacity: 1; }
 }

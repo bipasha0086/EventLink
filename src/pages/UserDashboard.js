@@ -37,6 +37,13 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
   const [selectedSeat, setSelectedSeat] = React.useState('');
   const [bookingError, setBookingError] = React.useState('');
   const [paymentError, setPaymentError] = React.useState('');
+  const [favoriteTheatreIds, setFavoriteTheatreIds] = React.useState([]);
+  const [plannerMessage, setPlannerMessage] = React.useState('');
+
+  const favoritesStorageKey = React.useMemo(
+    () => `eventbooking:fav-theatres:${currentUser?.userId || 'guest'}`,
+    [currentUser?.userId]
+  );
 
   const searchTokens = React.useMemo(() => tokenizeSearch(searchText), [searchText]);
   const isCinemaIntentSearch = React.useMemo(
@@ -75,59 +82,64 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
     }
   }, [selectedArea, areaOptions]);
 
-  const filteredTheatres = React.useMemo(() => {
-    if (!selectedArea) {
-      return theatresBySearch;
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(favoritesStorageKey);
+      if (!raw) {
+        setFavoriteTheatreIds([]);
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) {
+        setFavoriteTheatreIds([]);
+        return;
+      }
+      setFavoriteTheatreIds(parsed.map((id) => Number(id)).filter((id) => Number.isFinite(id)));
+    } catch {
+      setFavoriteTheatreIds([]);
     }
-    return theatresBySearch.filter((t) => t.area === selectedArea);
-  }, [theatresBySearch, selectedArea]);
+  }, [favoritesStorageKey]);
 
   React.useEffect(() => {
-    if (!filteredTheatres.length) {
-      setSelectedTheatre('');
-      setSelectedEvent('');
-      setSelectedSeat('');
-      return;
-    }
-
-    const stillValid = filteredTheatres.some((t) => toNumber(t.theatreId) === toNumber(selectedTheatre));
-    if (!stillValid) {
-      setSelectedTheatre(toNumber(filteredTheatres[0].theatreId));
-      setSelectedEvent('');
-      setSelectedSeat('');
-    }
-  }, [filteredTheatres, selectedTheatre]);
+    localStorage.setItem(favoritesStorageKey, JSON.stringify(favoriteTheatreIds));
+  }, [favoriteTheatreIds, favoritesStorageKey]);
 
   const theatreById = React.useMemo(
     () => new Map(theatres.map((theatre) => [toNumber(theatre.theatreId), theatre])),
     [theatres]
   );
-  const filteredTheatreIds = React.useMemo(
-    () => new Set(filteredTheatres.map((theatre) => toNumber(theatre.theatreId))),
-    [filteredTheatres]
-  );
+
+  const filteredTheatres = React.useMemo(() => {
+    return theatresBySearch.filter((theatre) => {
+      if (selectedArea && theatre.area !== selectedArea) {
+        return false;
+      }
+      return true;
+    });
+  }, [theatresBySearch, selectedArea]);
 
   const theatreEvents = React.useMemo(() => {
-    const selectedTheatreId = toNumber(selectedTheatre);
-
-    if (!searchTokens.length || isCinemaIntentSearch) {
-      return events.filter((eventItem) => toNumber(eventItem.theatreId) === selectedTheatreId);
-    }
-    if (!filteredTheatreIds.size) {
-      return events.filter((eventItem) => toNumber(eventItem.theatreId) === selectedTheatreId);
-    }
-    return events.filter((eventItem) => filteredTheatreIds.has(toNumber(eventItem.theatreId)));
-  }, [events, selectedTheatre, filteredTheatreIds, searchTokens, isCinemaIntentSearch]);
+    return events.filter((event) => {
+      const theatre = theatreById.get(toNumber(event.theatreId));
+      if (!theatre) {
+        return false;
+      }
+      if (selectedArea && theatre.area !== selectedArea) {
+        return false;
+      }
+      if (selectedTheatre && toNumber(theatre.theatreId) !== toNumber(selectedTheatre)) {
+        return false;
+      }
+      return filteredTheatres.some((item) => toNumber(item.theatreId) === toNumber(theatre.theatreId));
+    });
+  }, [events, filteredTheatres, selectedArea, selectedTheatre, theatreById]);
 
   React.useEffect(() => {
-    if (selectedEvent && !theatreEvents.some((eventItem) => toNumber(eventItem.eventId) === toNumber(selectedEvent))) {
+    if (theatreEvents.length === 0) {
       setSelectedEvent('');
-      setSelectedSeat('');
+      return;
     }
-  }, [selectedEvent, theatreEvents]);
-
-  React.useEffect(() => {
-    if (!selectedEvent && theatreEvents.length > 0) {
+    if (!selectedEvent || !theatreEvents.some((event) => toNumber(event.eventId) === toNumber(selectedEvent))) {
       setSelectedEvent(toNumber(theatreEvents[0].eventId));
     }
   }, [selectedEvent, theatreEvents]);
@@ -138,7 +150,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
   );
 
   const selectedEventSeats = React.useMemo(() => seatsByEvent[selectedEvent] || [], [seatsByEvent, selectedEvent]);
-  const selectedSeatInfo = selectedEventSeats.find((seat) => seat.seatId === selectedSeat) || null;
+  const selectedSeatInfo = selectedEventSeats.find((seat) => toNumber(seat.seatId) === toNumber(selectedSeat)) || null;
   const seatPrice = 45;
   const totalAmount = selectedSeatInfo ? seatPrice : 0;
   const availableSeatCount = React.useMemo(
@@ -170,15 +182,10 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
     return rows;
   }, [selectedEventSeats]);
 
-  const rowLabels = React.useMemo(() => {
-    const defaultRows = ['A', 'B', 'C', 'D', 'E', 'F'];
-    const dynamic = seatGrid.map(([row]) => row);
-    const merged = Array.from(new Set([...defaultRows, ...dynamic]));
-    return merged;
-  }, [seatGrid]);
+  const rowLabels = React.useMemo(() => seatGrid.map(([row]) => row), [seatGrid]);
 
   const maxSeatNumber = React.useMemo(() => {
-    let max = 10;
+    let max = 0;
     selectedEventSeats.forEach((seat) => {
       const match = String(seat.seatNumber || '').match(/^(?:[A-Za-z]+)(\d+)$/);
       if (match) {
@@ -222,14 +229,57 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
   };
 
   const selectedTheatreInfo = theatres.find((t) => toNumber(t.theatreId) === toNumber(selectedTheatre));
+  const favoriteTheatres = React.useMemo(
+    () => theatres.filter((theatre) => favoriteTheatreIds.includes(toNumber(theatre.theatreId))),
+    [theatres, favoriteTheatreIds]
+  );
+  const selectedTheatreIsFavorite = favoriteTheatreIds.includes(toNumber(selectedTheatre));
   const selectedEventTheatre = selectedEventInfo ? theatreById.get(toNumber(selectedEventInfo.theatreId)) : null;
   const mapTargetTheatre = selectedEventTheatre || selectedTheatreInfo;
   const mapsQuery = mapTargetTheatre?.mapQuery || mapTargetTheatre?.name || searchText || selectedArea || '';
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapsQuery)}`;
   const mapsEmbedUrl = `https://www.google.com/maps?q=${encodeURIComponent(mapsQuery)}&output=embed`;
+  const activeBookingCount = bookings.filter((booking) => booking.userId === currentUser.userId && ['PENDING_PAYMENT', 'PAID'].includes(booking.status)).length;
+  const dashboardPulse = [
+    { label: 'Active booking', value: activeBookingCount || 0 },
+    { label: 'Available seats', value: availableSeatCount },
+    { label: 'Matched theatres', value: theatresBySearch.length },
+  ];
+
+  const reminderText = React.useMemo(() => {
+    if (!userBooking) {
+      return 'No active booking reminder yet. Reserve a seat to generate one-click reminder text.';
+    }
+    const deadline = new Date(userBooking.paymentDeadline);
+    const deadlineLabel = Number.isNaN(deadline.getTime()) ? 'soon' : deadline.toLocaleString();
+    return `Reminder: Pay for ${userBooking.eventName} at ${userBooking.theatreName}, seat ${userBooking.seatNumber}, before ${deadlineLabel}.`;
+  }, [userBooking]);
+
+  const toggleFavouriteTheatre = () => {
+    const theatreId = toNumber(selectedTheatre);
+    if (!Number.isFinite(theatreId)) {
+      return;
+    }
+    setFavoriteTheatreIds((prev) => {
+      if (prev.includes(theatreId)) {
+        return prev.filter((id) => id !== theatreId);
+      }
+      return [...prev, theatreId];
+    });
+    setPlannerMessage(selectedTheatreIsFavorite ? 'Removed from Smart Planner favourites.' : 'Added to Smart Planner favourites.');
+  };
+
+  const copyReminder = async () => {
+    try {
+      await navigator.clipboard.writeText(reminderText);
+      setPlannerMessage('Reminder copied. Share it on chat or notes.');
+    } catch {
+      setPlannerMessage('Clipboard not available in this browser session.');
+    }
+  };
 
   const selectSx = {
-    borderRadius: 3,
+    borderRadius: 1.5,
     '& .MuiOutlinedInput-notchedOutline': {
       borderColor: 'rgba(16, 42, 67, 0.15)',
     },
@@ -295,6 +345,60 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
           },
         }}
       />
+
+      <Card
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            mb: 3,
+            borderRadius: 2,
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, rgba(255,255,255,0.94) 0%, rgba(244,250,249,0.95) 100%)',
+            boxShadow: '0 16px 32px rgba(16, 42, 67, 0.08)',
+          }}
+        >
+          <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', md: 'center' }} justifyContent="space-between">
+              <Box>
+                <Chip label="Live user dashboard" size="small" sx={{ mb: 1.5, background: 'rgba(15, 139, 141, 0.12)', color: '#0f8b8d', fontWeight: 800 }} />
+                <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: '-0.03em', color: '#102a43' }}>
+                  Welcome back, {currentUser.username}
+                </Typography>
+                <Typography sx={{ color: '#486581', fontWeight: 600, mt: 0.7, maxWidth: 760, lineHeight: 1.65 }}>
+                  Search a theatre, preview the seat map, and keep your 24-hour payment window visible while you book.
+                </Typography>
+              </Box>
+
+              <Box sx={{ minWidth: { xs: '100%', md: 340 }, width: { xs: '100%', md: 340 } }}>
+                <Stack direction="row" spacing={1.2} sx={{ mb: 1.2, flexWrap: 'wrap' }}>
+                  {dashboardPulse.map((item, index) => (
+                    <Box
+                      key={item.label}
+                      sx={{
+                        flex: '1 1 100px',
+                        borderRadius: 1.5,
+                        p: 1.5,
+                        background: index === 1 ? 'rgba(15, 139, 141, 0.08)' : 'rgba(255,255,255,0.88)',
+                        border: '1px solid rgba(16, 42, 67, 0.08)',
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '0.75rem', color: '#486581', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        {item.label}
+                      </Typography>
+                      <Typography sx={{ fontSize: '1.5rem', fontWeight: 900, color: index === 1 ? '#0f8b8d' : '#102a43' }}>
+                        {item.value}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+                <Box sx={{ height: 6, borderRadius: 2, background: 'rgba(15, 139, 141, 0.12)', overflow: 'hidden' }}>
+                  <Box sx={{ width: '68%', height: '100%', borderRadius: 2, background: 'linear-gradient(90deg, #0f8b8d 0%, #57b3b5 100%)', animation: 'userPulseBar 4.8s ease-in-out infinite' }} />
+                </Box>
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+
       <Box
         sx={{
           position: 'absolute',
@@ -308,7 +412,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
       />
 
       <Box sx={{ width: '100%', maxWidth: 1520, mx: 'auto', position: 'relative', zIndex: 2 }}>
-      <Card sx={{ mb: 2.5, borderRadius: '18px', background: 'linear-gradient(130deg, #1c3557 0%, #2f4f79 100%)', color: 'white', boxShadow: '0 20px 38px rgba(16, 42, 67, 0.22)' }}>
+      <Card sx={{ mb: 2.5, borderRadius: 2, background: 'linear-gradient(130deg, #1c3557 0%, #2f4f79 100%)', color: 'white', boxShadow: '0 20px 38px rgba(16, 42, 67, 0.22)' }}>
         <CardContent sx={{ p: { xs: 2.5, md: 3.5 } }}>
           <Typography variant="h4" sx={{ fontWeight: 900, mb: 1, letterSpacing: '-0.03em', fontSize: { xs: '2rem', md: '2.2rem' } }}>
             User Threat Board
@@ -321,7 +425,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
 
       <Box sx={{ display: 'flex', gap: 2.8, alignItems: 'stretch', flexDirection: { xs: 'column', lg: 'row' } }}>
         <Box sx={{ width: { xs: '100%', lg: '36%' }, minWidth: 0 }}>
-          <Card sx={{ borderRadius: '20px', mb: 2.2, overflow: 'hidden', background: 'linear-gradient(145deg, rgba(239,246,255,0.95) 0%, rgba(228,238,250,0.96) 100%)', border: '1px solid rgba(140, 170, 200, 0.25)', boxShadow: '0 18px 34px rgba(14, 44, 76, 0.1)' }}>
+          <Card sx={{ borderRadius: 2, mb: 2.2, overflow: 'hidden', background: 'linear-gradient(145deg, rgba(239,246,255,0.95) 0%, rgba(228,238,250,0.96) 100%)', border: '1px solid rgba(140, 170, 200, 0.25)', boxShadow: '0 18px 34px rgba(14, 44, 76, 0.1)' }}>
             <CardContent sx={{ pt: 2.8 }}>
               <Stack spacing={2.2}>
                 <TextField
@@ -473,13 +577,13 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
             </CardContent>
           </Card>
 
-          <Card sx={{ borderRadius: '20px', overflow: 'hidden', background: 'linear-gradient(145deg, rgba(247, 250, 255, 0.95) 0%, rgba(238, 246, 251, 0.95) 100%)', border: '1px solid rgba(140, 170, 200, 0.25)' }}>
+          <Card sx={{ borderRadius: 2, overflow: 'hidden', background: 'linear-gradient(145deg, rgba(247, 250, 255, 0.95) 0%, rgba(238, 246, 251, 0.95) 100%)', border: '1px solid rgba(140, 170, 200, 0.25)' }}>
             <CardContent>
               <Typography variant="h6" sx={{ fontWeight: 800, mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                 My Booking
               </Typography>
               <Divider sx={{ mb: 1.6, borderColor: 'rgba(16,42,67,0.08)' }} />
-              {!userBooking && <Alert severity="info" sx={{ borderRadius: 99, background: 'rgba(205, 235, 248, 0.65)', color: '#20405f' }}>You have no active seat booking.</Alert>}
+              {!userBooking && <Alert severity="info" sx={{ borderRadius: 2, background: 'rgba(205, 235, 248, 0.65)', color: '#20405f' }}>You have no active seat booking.</Alert>}
 
               {userBooking && (
                 <Stack spacing={1.1}>
@@ -496,10 +600,69 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
               )}
             </CardContent>
           </Card>
+
+          <Card sx={{ mt: 2.2, borderRadius: 2, overflow: 'hidden', background: 'linear-gradient(145deg, rgba(242, 250, 247, 0.95) 0%, rgba(233, 246, 241, 0.95) 100%)', border: '1px solid rgba(96, 155, 137, 0.25)' }}>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Smart Planner</Typography>
+              <Typography sx={{ color: '#486581', mb: 1.5, fontSize: '0.92rem' }}>
+                Save favourite theatres and copy a ready-made payment reminder.
+              </Typography>
+
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.2} sx={{ mb: 1.4 }}>
+                <Button
+                  variant={selectedTheatreIsFavorite ? 'outlined' : 'contained'}
+                  onClick={toggleFavouriteTheatre}
+                  disabled={!selectedTheatre}
+                  sx={{ flex: 1, fontWeight: 800 }}
+                >
+                  {selectedTheatreIsFavorite ? 'Remove Favourite' : 'Save Current Theatre'}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={copyReminder}
+                  sx={{ flex: 1, fontWeight: 800 }}
+                >
+                  Copy Reminder
+                </Button>
+              </Stack>
+
+              <Typography sx={{ fontWeight: 700, color: '#254a57', mb: 0.8, fontSize: '0.88rem' }}>
+                Favourites
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1.5 }}>
+                {favoriteTheatres.length === 0 && (
+                  <Chip size="small" label="No favourites yet" sx={{ borderRadius: 2 }} />
+                )}
+                {favoriteTheatres.map((theatre) => (
+                  <Chip
+                    key={theatre.theatreId}
+                    label={`${theatre.name} (${theatre.area})`}
+                    onClick={() => {
+                      setSelectedArea(theatre.area || '');
+                      setSelectedTheatre(toNumber(theatre.theatreId));
+                      setSelectedEvent('');
+                      setSelectedSeat('');
+                    }}
+                    clickable
+                    sx={{ borderRadius: 2 }}
+                  />
+                ))}
+              </Stack>
+
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
+                {reminderText}
+              </Alert>
+              {plannerMessage && (
+                <Alert severity="success" sx={{ borderRadius: 2, mt: 1.2 }}>
+                  {plannerMessage}
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
         </Box>
 
         <Box sx={{ width: { xs: '100%', lg: '64%' }, minWidth: 0 }}>
-          <Card sx={{ borderRadius: '28px', overflow: 'hidden', height: '100%', minHeight: 620, background: 'radial-gradient(circle at 20% 0%, rgba(46, 111, 184, 0.28) 0%, rgba(46, 111, 184, 0) 34%), radial-gradient(circle at 100% 18%, rgba(37, 197, 255, 0.12) 0%, rgba(37, 197, 255, 0) 30%), linear-gradient(180deg, #121a2a 0%, #0e1220 100%)', border: '1px solid rgba(92, 132, 183, 0.22)', boxShadow: '0 28px 60px rgba(5, 12, 25, 0.36)' }}>
+          <Card sx={{ borderRadius: 2, overflow: 'hidden', height: '100%', minHeight: 620, background: 'radial-gradient(circle at 20% 0%, rgba(46, 111, 184, 0.28) 0%, rgba(46, 111, 184, 0) 34%), radial-gradient(circle at 100% 18%, rgba(37, 197, 255, 0.12) 0%, rgba(37, 197, 255, 0) 30%), linear-gradient(180deg, #121a2a 0%, #0e1220 100%)', border: '1px solid rgba(92, 132, 183, 0.22)', boxShadow: '0 28px 60px rgba(5, 12, 25, 0.36)' }}>
             <CardContent sx={{ pt: 3, height: '100%', display: 'flex', flexDirection: 'column', color: '#eef4ff' }}>
               <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 2.2, mb: 2.2 }}>
                 <Box
@@ -535,7 +698,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                       <Chip
                         size="small"
                         label={mapTargetTheatre?.name || 'Choose a theatre'}
-                        sx={{ alignSelf: 'flex-start', background: 'rgba(255,255,255,0.14)', color: '#f2f7ff', borderRadius: 999, border: '1px solid rgba(255,255,255,0.14)' }}
+                        sx={{ alignSelf: 'flex-start', background: 'rgba(255,255,255,0.14)', color: '#f2f7ff', borderRadius: 2, border: '1px solid rgba(255,255,255,0.14)' }}
                       />
                       <Typography sx={{ color: 'rgba(238, 245, 255, 0.76)', fontSize: '0.92rem', lineHeight: 1.65 }}>
                         {selectedEventInfo
@@ -560,9 +723,9 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                   </Typography>
 
                   <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mb: 1.8 }}>
-                    <Chip size="small" label={`Seats Available: ${availableSeatCount}`} sx={{ borderRadius: 999, background: 'rgba(38, 192, 255, 0.14)', color: '#d8f0ff', border: '1px solid rgba(38, 192, 255, 0.22)' }} />
-                    <Chip size="small" label={`Selected Seat: ${selectedSeatLabel}`} sx={{ borderRadius: 999, background: 'rgba(125, 202, 164, 0.14)', color: '#d8ffe8', border: '1px solid rgba(125, 202, 164, 0.22)' }} />
-                    <Chip size="small" label={`Price: $${seatPrice.toFixed(2)}`} sx={{ borderRadius: 999, background: 'rgba(255, 255, 255, 0.08)', color: '#eef4ff', border: '1px solid rgba(255,255,255,0.12)' }} />
+                    <Chip size="small" label={`Seats Available: ${availableSeatCount}`} sx={{ borderRadius: 2, background: 'rgba(38, 192, 255, 0.14)', color: '#d8f0ff', border: '1px solid rgba(38, 192, 255, 0.22)' }} />
+                    <Chip size="small" label={`Selected Seat: ${selectedSeatLabel}`} sx={{ borderRadius: 2, background: 'rgba(125, 202, 164, 0.14)', color: '#d8ffe8', border: '1px solid rgba(125, 202, 164, 0.22)' }} />
+                    <Chip size="small" label={`Price: $${seatPrice.toFixed(2)}`} sx={{ borderRadius: 2, background: 'rgba(255, 255, 255, 0.08)', color: '#eef4ff', border: '1px solid rgba(255,255,255,0.12)' }} />
                   </Stack>
 
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.4, p: 1.4, borderRadius: 3, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
@@ -574,7 +737,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                 </Box>
               </Box>
 
-              <Box sx={{ mb: 1.8, px: 0.6, py: 0.55, borderRadius: 999, textAlign: 'center', fontWeight: 900, letterSpacing: '0.22em', color: '#eef4ff', background: 'linear-gradient(90deg, rgba(56,150,255,0.18) 0%, rgba(56,150,255,0.03) 50%, rgba(56,150,255,0.18) 100%)', border: '1px solid rgba(114, 173, 255, 0.2)' }}>
+              <Box sx={{ mb: 1.8, px: 0.6, py: 0.55, borderRadius: 2, textAlign: 'center', fontWeight: 900, letterSpacing: '0.22em', color: '#eef4ff', background: 'linear-gradient(90deg, rgba(56,150,255,0.18) 0%, rgba(56,150,255,0.03) 50%, rgba(56,150,255,0.18) 100%)', border: '1px solid rgba(114, 173, 255, 0.2)' }}>
                 SCREEN
               </Box>
 
@@ -614,6 +777,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                       position: 'absolute',
                       inset: 0,
                       background: 'linear-gradient(95deg, rgba(87,190,255,0.18) 0%, rgba(87,190,255,0.04) 42%, rgba(255,255,255,0) 74%), linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0) 32%)',
+                      pointerEvents: 'none',
                       animation: 'seatHoloScan 5.8s linear infinite',
                     },
                     '&::after': {
@@ -624,6 +788,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                       right: -140,
                       top: -110,
                       background: 'radial-gradient(circle, rgba(84, 164, 255, 0.28) 0%, rgba(84, 164, 255, 0) 65%)',
+                      pointerEvents: 'none',
                       filter: 'blur(10px)',
                     },
                     '@keyframes seatHoloScan': {
@@ -636,7 +801,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                     },
                   }}
                 >
-                  <Stack spacing={1.05} sx={{ position: 'relative', zIndex: 1, minWidth: 820 }}>
+                  <Stack spacing={1.05} sx={{ position: 'relative', zIndex: 1, minWidth: 'max-content' }}>
                     {rowLabels.map((rowLabel) => (
                       <Box key={rowLabel} sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: '100%' }}>
                         <Typography sx={{ width: 22, color: '#d5e7ff', fontWeight: 800, fontSize: '1rem' }}>{rowLabel}</Typography>
@@ -644,7 +809,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                           {Array.from({ length: maxSeatNumber }, (_, i) => i + 1).map((col) => {
                             const seat = seatLookup.get(`${rowLabel}-${col}`);
                             const isMissing = !seat;
-                            const isSelected = seat ? seat.seatId === selectedSeat : false;
+                            const isSelected = seat ? toNumber(seat.seatId) === toNumber(selectedSeat) : false;
                             const isOccupied = seat ? !!seat.isBooked : false;
                             const bg = isMissing
                               ? 'linear-gradient(145deg, #f2f6fa 0%, #e4ebf2 100%)'
@@ -656,65 +821,70 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                             const color = isMissing ? '#a9b4c1' : isOccupied ? '#8a95a2' : isSelected ? '#ffffff' : '#234d66';
 
                             return (
-                              <Box
-                                key={`${rowLabel}-${col}`}
-                                role="button"
-                                onClick={() => {
-                                  if (isMissing || isOccupied || userBooking || !seat) {
-                                    return;
-                                  }
-                                  setSelectedSeat(seat.seatId);
-                                  setBookingError('');
-                                }}
-                                sx={{
-                                  width: { xs: 32, md: 36 },
-                                  height: { xs: 32, md: 36 },
-                                  borderRadius: 999,
-                                  border: `1px solid ${isSelected ? '#4bb4ff' : 'rgba(120, 166, 214, 0.2)'}`,
-                                  display: 'grid',
-                                  placeItems: 'center',
-                                  fontSize: '0.74rem',
-                                  fontWeight: 700,
-                                  cursor: isMissing || isOccupied || userBooking ? 'not-allowed' : 'pointer',
-                                  backgroundColor: bg,
-                                  backgroundImage: bg,
-                                  color,
-                                  opacity: isMissing ? 0.88 : isOccupied ? 0.8 : 1,
-                                  transform: isSelected ? 'translateY(-2px) scale(1.05)' : 'translateY(0) scale(1)',
-                                  boxShadow: isSelected
-                                    ? '0 16px 28px rgba(57, 168, 255, 0.42), inset 0 1px 0 rgba(255,255,255,0.55)'
-                                    : isOccupied
-                                      ? 'inset 0 1px 0 rgba(255,255,255,0.58)'
-                                      : 'inset 0 1px 0 rgba(255,255,255,0.66)',
-                                  animation: isSelected ? 'seatPulse 1.8s ease-in-out infinite' : 'none',
-                                  transition: 'transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease',
-                                  '@keyframes seatPulse': {
-                                    '0%, 100%': { transform: 'translateY(-2px) scale(1.05)' },
-                                    '50%': { transform: 'translateY(-4px) scale(1.08)' },
-                                  },
-                                  '&:hover': {
-                                    transform: isMissing || isOccupied || userBooking ? 'none' : 'translateY(-3px) scale(1.06)',
-                                    boxShadow: isMissing || isOccupied || userBooking ? 'none' : '0 16px 26px rgba(57, 168, 255, 0.26)',
-                                    filter: isMissing || isOccupied || userBooking ? 'none' : 'brightness(1.02)',
-                                  },
-                                }}
-                                title={seat ? `${seat.seatNumber}${isOccupied ? ' (Occupied)' : ''}` : `No seat ${rowLabel}${col}`}
-                              >
-                                {isMissing ? col : isOccupied ? 'x' : col}
-                              </Box>
+                              <React.Fragment key={`${rowLabel}-${col}`}>
+                                <Box
+                                  role="button"
+                                  onClick={() => {
+                                    if (isMissing || isOccupied || !seat) {
+                                      return;
+                                    }
+                                    setSelectedSeat(toNumber(seat.seatId));
+                                    setBookingError('');
+                                  }}
+                                  sx={{
+                                  position: 'relative',
+                                  zIndex: 2,
+                                    width: { xs: 32, md: 36 },
+                                    height: { xs: 32, md: 36 },
+                                    borderRadius: 2,
+                                    border: `1px solid ${isSelected ? '#4bb4ff' : 'rgba(120, 166, 214, 0.2)'}`,
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                    fontSize: '0.74rem',
+                                    fontWeight: 700,
+                                    cursor: isMissing || isOccupied ? 'not-allowed' : 'pointer',
+                                    backgroundColor: bg,
+                                    backgroundImage: bg,
+                                    color,
+                                    opacity: isMissing ? 0.88 : isOccupied ? 0.8 : 1,
+                                    transform: isSelected ? 'translateY(-2px) scale(1.05)' : 'translateY(0) scale(1)',
+                                    boxShadow: isSelected
+                                      ? '0 16px 28px rgba(57, 168, 255, 0.42), inset 0 1px 0 rgba(255,255,255,0.55)'
+                                      : isOccupied
+                                        ? 'inset 0 1px 0 rgba(255,255,255,0.58)'
+                                        : 'inset 0 1px 0 rgba(255,255,255,0.66)',
+                                    animation: isSelected ? 'seatPulse 1.8s ease-in-out infinite' : 'none',
+                                    transition: 'transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease',
+                                    '@keyframes seatPulse': {
+                                      '0%, 100%': { transform: 'translateY(-2px) scale(1.05)' },
+                                      '50%': { transform: 'translateY(-4px) scale(1.08)' },
+                                    },
+                                    '&:hover': {
+                                      transform: isMissing || isOccupied ? 'none' : 'translateY(-3px) scale(1.06)',
+                                      boxShadow: isMissing || isOccupied ? 'none' : '0 16px 26px rgba(57, 168, 255, 0.26)',
+                                      filter: isMissing || isOccupied ? 'none' : 'brightness(1.02)',
+                                    },
+                                  }}
+                                  title={seat ? `${seat.seatNumber}${isOccupied ? ' (Occupied)' : ''}` : `No seat ${rowLabel}${col}`}
+                                >
+                                  {isMissing ? col : isOccupied ? 'x' : col}
+                                </Box>
+                                {col === aisleAfterColumn && col !== maxSeatNumber && (
+                                  <Box
+                                    sx={{
+                                      width: 18,
+                                      height: 28,
+                                      borderLeft: '1px dashed rgba(157, 187, 221, 0.28)',
+                                      borderRight: '1px dashed rgba(157, 187, 221, 0.28)',
+                                      opacity: 0.9,
+                                      mx: 0.4,
+                                    }}
+                                    title="Aisle"
+                                  />
+                                )}
+                              </React.Fragment>
                             );
                           })}
-                          <Box
-                            sx={{
-                              width: 18,
-                              height: 28,
-                              borderLeft: '1px dashed rgba(157, 187, 221, 0.28)',
-                              borderRight: '1px dashed rgba(157, 187, 221, 0.28)',
-                              opacity: 0.9,
-                              mx: 0.4,
-                            }}
-                            title="Aisle"
-                          />
                         </Box>
                       </Box>
                     ))}
@@ -745,7 +915,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                   flexWrap: 'wrap',
                   gap: 1,
                   p: 1.2,
-                  borderRadius: 99,
+                  borderRadius: 2,
                   background: 'rgba(255, 255, 255, 0.06)',
                   border: '1px solid rgba(146, 173, 196, 0.2)',
                   boxShadow: '0 10px 24px rgba(3, 8, 18, 0.18)',
@@ -769,7 +939,7 @@ export default function UserDashboard({ currentUser, theatres, events, seatsByEv
                   disabled={!selectedSeat || !!userBooking || !selectedEvent}
                   sx={{
                     minWidth: 260,
-                    borderRadius: 99,
+                    borderRadius: 2,
                     py: 1.25,
                     fontWeight: 900,
                     fontSize: '1rem',

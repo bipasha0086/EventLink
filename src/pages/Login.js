@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import {
   Alert,
@@ -8,13 +7,25 @@ import {
   FormControl,
   InputLabel,
   MenuItem,
+  Paper,
   Select,
   Stack,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from '@mui/material';
 import { Navigate, useNavigate } from 'react-router-dom';
-import './Auth.css';
+
+const normalizeRole = (role) => {
+  const value = String(role || '').trim().toUpperCase().replace(/\s+/g, '_');
+  if (value === 'ADMIN') return 'ADMIN';
+  if (value === 'USER') return 'USER';
+  if (['THEATRE', 'THEATER', 'THEATRE_PERSON', 'THEATER_PERSON', 'THREATRE', 'THREAD_PERSON'].includes(value)) {
+    return 'THEATRE';
+  }
+  return value;
+};
 
 const roles = [
   {
@@ -45,10 +56,11 @@ export default function Login({ currentUser, onLogin, theatres, threatAreas }) {
   const [loading, setLoading] = useState(false);
 
   if (currentUser) {
+    const currentRole = normalizeRole(currentUser.role);
     const route =
-      currentUser.role === 'ADMIN'
+      currentRole === 'ADMIN'
         ? '/admin-dashboard'
-        : currentUser.role === 'THEATRE'
+        : currentRole === 'THEATRE'
           ? '/theatre-dashboard'
           : '/user-dashboard';
     return <Navigate to={route} replace />;
@@ -69,17 +81,19 @@ export default function Login({ currentUser, onLogin, theatres, threatAreas }) {
 
     try {
       setLoading(true);
-      await onLogin({
+      const user = await onLogin({
         username: username.trim(),
         password: password.trim(),
         expectedRole: selectedRole,
       });
 
-      if (selectedRole === 'ADMIN') {
+      const userRole = normalizeRole(user?.role);
+
+      if (userRole === 'ADMIN') {
         navigate('/admin-dashboard');
         return;
       }
-      if (selectedRole === 'THEATRE') {
+      if (userRole === 'THEATRE') {
         navigate('/theatre-dashboard');
         return;
       }
@@ -92,112 +106,108 @@ export default function Login({ currentUser, onLogin, theatres, threatAreas }) {
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-shell">
-        <aside className="auth-hero">
-          <div className="auth-hero-inner">
-            <div>
-              <span className="auth-eyebrow">Secure role access</span>
-              <h1>Welcome back.</h1>
-              <p>
-                Sign in to manage bookings, payments, theatre alerts, and role-based dashboards from one coordinated system.
-              </p>
-              <div className="auth-points">
-                <div className="auth-point"><strong>24h</strong><span>payment control</span></div>
-                <div className="auth-point"><strong>3</strong><span>role views</span></div>
-                <div className="auth-point"><strong>1</strong><span>active seat per user</span></div>
-              </div>
-            </div>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        px: 2,
+        py: 4,
+        background: '#f4f7f8',
+      }}
+    >
+      <Paper
+        elevation={0}
+        sx={{
+          width: '100%',
+          maxWidth: 560,
+          borderRadius: 2,
+          border: '1px solid rgba(16, 42, 67, 0.1)',
+          p: { xs: 2.5, md: 3.5 },
+          background: '#ffffff',
+        }}
+      >
+        <Typography variant="h4" sx={{ fontWeight: 900, color: '#102a43', mb: 1 }}>
+          Login
+        </Typography>
+        <Typography sx={{ color: '#486581', mb: 2.5 }}>
+          Select role and sign in to continue.
+        </Typography>
 
-            <div className="auth-visual">
-              <div className="auth-visual-grid">
-                <div className="auth-visual-icon one">🔒</div>
-                <div className="auth-visual-icon two">▶</div>
-                <div className="auth-visual-icon three">✉</div>
-                <div style={{ marginTop: 40 }}>
-                  <div style={{ color: '#0f8b8d', fontWeight: 900, marginBottom: 8 }}>Upcoming Schedules</div>
-                  <div className="auth-visual-bars">
-                    {Array.from({ length: 24 }).map((_, index) => (
-                      <span key={index} className={index % 5 === 0 ? 'auth-bar active' : 'auth-bar'} />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
+        <ToggleButtonGroup
+          exclusive
+          fullWidth
+          value={selectedRole}
+          onChange={(_, value) => {
+            if (value) {
+              setSelectedRole(value);
+            }
+          }}
+          sx={{ mb: 2 }}
+        >
+          {roles.map((role) => (
+            <ToggleButton key={role.value} value={role.value} sx={{ fontWeight: 700 }}>
+              {role.label}
+            </ToggleButton>
+          ))}
+        </ToggleButtonGroup>
 
-        <section className="auth-form">
-          <div className="auth-form-inner">
-            <Typography className="auth-title">Choose your role and sign in.</Typography>
-            <Typography className="auth-subtitle">Select the account type, then continue to your dashboard.</Typography>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
+            {error}
+          </Alert>
+        )}
 
-            <div className="auth-role-grid">
-              {roles.map((role) => (
-                <div
-                  key={role.value}
-                  className={`auth-role-card ${selectedRole === role.value ? 'active' : ''}`}
-                  onClick={() => setSelectedRole(role.value)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === 'Enter' && setSelectedRole(role.value)}
-                >
-                  <h3>{role.label}</h3>
-                  <p>{role.description}</p>
-                </div>
-              ))}
-            </div>
+        <Box component="form" onSubmit={handleSubmit}>
+          <Stack spacing={2}>
+            <TextField
+              label="Username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              fullWidth
+            />
+            <TextField
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              fullWidth
+            />
 
-            <div className="auth-panel">
-              {error && (
-                <Alert severity="error" sx={{ mb: 2, borderRadius: 2, fontWeight: 500 }}>
-                  {error}
-                </Alert>
-              )}
+            {selectedRole === 'USER' && threatAreas.length > 0 && (
+              <FormControl fullWidth>
+                <InputLabel>Threat Area</InputLabel>
+                <Select value={threatArea} label="Threat Area" onChange={(e) => setThreatArea(e.target.value)}>
+                  {threatAreas.map((area) => (
+                    <MenuItem key={area} value={area}>{area}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
-              <Box component="form" onSubmit={handleSubmit}>
-                <Stack spacing={2} className="auth-fields">
-                  <TextField label="Username" value={username} onChange={(e) => setUsername(e.target.value)} fullWidth placeholder="Enter your username" />
-                  <TextField label="Password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth placeholder="Enter your password" />
+            {selectedRole === 'THEATRE' && theatres.length > 0 && (
+              <FormControl fullWidth>
+                <InputLabel>Theatre</InputLabel>
+                <Select value={theatreId} label="Theatre" onChange={(e) => setTheatreId(e.target.value)}>
+                  {theatres.map((theatre) => (
+                    <MenuItem key={theatre.theatreId} value={theatre.theatreId}>
+                      {theatre.name} - {theatre.area}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
 
-                  {selectedRole === 'USER' && threatAreas.length > 0 && (
-                    <FormControl fullWidth>
-                      <InputLabel>Threat Area</InputLabel>
-                      <Select value={threatArea} label="Threat Area" onChange={(e) => setThreatArea(e.target.value)}>
-                        {threatAreas.map((area) => (
-                          <MenuItem key={area} value={area}>{area}</MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  )}
+            <Button type="submit" variant="contained" size="large" disabled={loading} sx={{ py: 1.25, fontWeight: 800 }}>
+              {loading ? 'Logging in...' : `Continue as ${roles.find((r) => r.value === selectedRole)?.label}`}
+            </Button>
 
-                  {selectedRole === 'THEATRE' && theatres.length > 0 && (
-                    <FormControl fullWidth>
-                      <InputLabel>Theatre</InputLabel>
-                      <Select value={theatreId} label="Theatre" onChange={(e) => setTheatreId(e.target.value)}>
-                        {theatres.map((theatre) => (
-                          <MenuItem key={theatre.theatreId} value={theatre.theatreId}>
-                            {theatre.name} • {theatre.area}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  )}
-
-                  <Button type="submit" variant="contained" size="large" disabled={loading} sx={{ py: 1.4, fontWeight: 800, borderRadius: 2 }}>
-                    {loading ? 'Logging in...' : `Continue as ${roles.find((r) => r.value === selectedRole)?.label}`}
-                  </Button>
-
-                  <Typography sx={{ textAlign: 'center', color: '#486581', fontSize: '0.95rem', fontWeight: 600 }}>
-                    Don&apos;t have an account?{' '}
-                    <span onClick={() => navigate('/register')} style={{ color: '#0f8b8d', cursor: 'pointer', fontWeight: 800 }}>Create one</span>
-                  </Typography>
-                </Stack>
-              </Box>
-            </div>
-          </div>
-        </section>
-      </section>
-    </main>
+            <Button variant="text" onClick={() => navigate('/register')} sx={{ fontWeight: 700 }}>
+              Create new account
+            </Button>
+          </Stack>
+        </Box>
+      </Paper>
+    </Box>
   );
 }
